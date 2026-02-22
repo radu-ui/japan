@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Itinerariu Japonia 2026</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .timeline-item { transition: all 0.3s ease; border-left-width: 4px; border-color: transparent; }
+        .timeline-item:hover, .timeline-item.active { background-color: #f8fafc; border-left-color: #3b82f6; }
+        .timeline-item.active-red { border-left-color: #ef4444; }
+        .timeline-item.active-rose { border-left-color: #f43f5e; }
+        .timeline-item.active-emerald { border-left-color: #10b981; }
+        
+        .poi-marker { animation: dropIn 0.5s ease-out forwards; opacity: 0; transform: translateY(-20px); }
+        @keyframes dropIn { to { opacity: 1; transform: translateY(0); } }
+        
+        /* Stilizare suprascrisa pentru tooltips-urile de pe rute */
+        .leaflet-tooltip.route-tooltip {
+            background-color: rgba(255, 255, 255, 0.95) !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 12px !important;
+            padding: 3px 8px !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            color: #334155 !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            white-space: nowrap !important;
+        }
+        .leaflet-tooltip.route-tooltip::before { display: none !important; }
+
+        .leaflet-popup-content-wrapper { padding: 0; overflow: hidden; border-radius: 8px; }
+        .leaflet-popup-content { margin: 0; min-width: 192px; }
+    </style>
+</head>
+<body class="bg-slate-50 h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <!-- Container Harta -->
+    <div id="map" class="w-full h-[50vh] md:h-screen md:w-2/3 z-10 shadow-xl"></div>
+
+    <!-- Container Itinerariu -->
+    <div class="w-full h-[50vh] md:h-screen md:w-1/3 bg-white overflow-y-auto no-scrollbar shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.1)] z-20 flex flex-col relative">
+        
+        <!-- Header -->
+        <div class="sticky top-0 bg-white/95 backdrop-blur-md border-b border-slate-200 p-6 z-30 shadow-sm">
+            <h1 class="text-2xl font-bold text-slate-800"><i class="fa-solid fa-passport text-blue-600 mr-2"></i> Japonia & HK</h1>
+            <p class="text-sm text-slate-500 mt-1">1 Mai - 19 Mai 2026 • Apasă pe etape pt. detalii</p>
+        </div>
+
+        <!-- Timeline -->
+        <div class="p-4 space-y-2 pb-20" id="timeline-container">
+
+            <!-- Ziua 1-2: Plecarea -->
+            <div id="tab-otp" class="timeline-item cursor-pointer p-4 rounded-r-lg" onclick="focusMap('otp', this, 'active')">
+                <div class="flex items-center text-xs font-semibold text-blue-600 mb-2 tracking-wider uppercase">
+                    <i class="fa-solid fa-plane-departure mr-2"></i> Zbor Dus (Qatar Airways)
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">1 - 2 Mai: OTP ✈️ HKG</h3>
+                
+                <!-- Detalii zbor ascunse/stilizate -->
+                <div class="mt-3 pl-3 border-l-2 border-slate-200 space-y-3">
+                    <div>
+                        <p class="text-xs font-bold text-slate-700">✈️ OTP - DOH (Zbor QR 396)</p>
+                        <p class="text-xs text-slate-500">1 Mai • 17:10 - 21:40 <span class="text-blue-500 font-medium ml-1">(Durată: 4h 30m)</span></p>
+                    </div>
+                    <div class="bg-slate-100 p-2 rounded text-xs text-slate-600">
+                        <i class="fa-solid fa-mug-hot text-amber-600 mr-1"></i> <strong>Escală DOH:</strong> 12h 15m (Oprire de noapte)
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-slate-700">✈️ DOH - HKG (Zbor QR 816)</p>
+                        <p class="text-xs text-slate-500">2 Mai • 09:55 - 23:20 <span class="text-blue-500 font-medium ml-1">(Durată: 8h 25m)</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ziua 2-7: Hong Kong -->
+            <div id="tab-hkg" class="timeline-item cursor-pointer p-4 rounded-r-lg" onclick="focusMap('hkg', this, 'active-red')">
+                <div class="flex items-center text-xs font-semibold text-red-500 mb-1 tracking-wider uppercase">
+                    <i class="fa-solid fa-city mr-2"></i> Bază 1 (5 Nopți)
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">2 - 7 Mai: Hong Kong</h3>
+                <p class="text-sm text-slate-600 mt-1 mb-2">Punctele de interes vor apărea pe hartă la click.</p>
+                <ul class="text-xs text-slate-500 list-disc list-inside space-y-1">
+                    <li>Victoria Peak & Star Ferry</li>
+                    <li>Ngong Ping 360 (Big Buddha)</li>
+                    <li>Temple Street Night Market</li>
+                    <li><strong class="text-slate-700">Day Trip:</strong> Shenzhen (Tren rapid 15 min)</li>
+                </ul>
+            </div>
+
+            <!-- Ziua 7: Zbor FUK -->
+            <div id="tab-fuk_flight" class="timeline-item cursor-pointer p-4 rounded-r-lg" onclick="focusMap('fuk_flight', this, 'active')">
+                <div class="flex items-center text-xs font-semibold text-blue-600 mb-1 tracking-wider uppercase">
+                    <i class="fa-solid fa-plane mr-2"></i> Zbor Regional
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">7 Mai: Intrare în Japonia</h3>
+                <p class="text-sm text-slate-600 mt-1">
+                    <span class="font-medium text-slate-800">HKG ✈️ FUK</span> (Zbor ~3h 15m)
+                </p>
+            </div>
+
+            <!-- Ziua 7-10: Fukuoka -->
+            <div id="tab-fuk" class="timeline-item cursor-pointer p-4 rounded-r-lg" onclick="focusMap('fuk', this, 'active-rose')">
+                <div class="flex items-center text-xs font-semibold text-rose-500 mb-1 tracking-wider uppercase">
+                    <i class="fa-brands fa-pagelines mr-2"></i> Bază 2 (3 Nopți)
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">7 - 10 Mai: Fukuoka</h3>
+                <p class="text-sm text-slate-600 mt-1 mb-2">Oraș portuar tineresc, faimos pentru cultura culinară.</p>
+                <ul class="text-xs text-slate-500 list-disc list-inside space-y-1">
+                    <li>Tarabele Yatai din Nakasu</li>
+                    <li>Ohori Park (relaxare matinală)</li>
+                    <li><strong class="text-slate-700">Day Trip:</strong> Kumamoto (Castelul restaurat)</li>
+                </ul>
+            </div>
+
+            <!-- Ziua 10-13: Hiroshima -->
+            <div id="tab-hij" class="timeline-item cursor-pointer p-4 rounded-r-lg" onclick="focusMap('hij', this, 'active-emerald')">
+                <div class="flex items-center text-xs font-semibold text-emerald-600 mb-1 tracking-wider uppercase">
+                    <i class="fa-solid fa-train mr-2"></i> Bază 3 (3 Nopți)
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">10 - 13 Mai: Hiroshima</h3>
+                <p class="text-sm text-slate-600 mt-1 mb-2">
+                    <span class="font-medium text-emerald-700">FUK 🚄 HIJ</span> (~1h Shinkansen).
+                </p>
+                <ul class="text-xs text-slate-500 list-disc list-inside space-y-1">
+                    <li>Peace Memorial Park & Museum</li>
+                    <li><strong class="text-slate-700">Miyajima:</strong> Poarta Torii plutitoare</li>
+                    <li><strong class="text-slate-700">Onomichi:</strong> Orașul colinelor și al pisicilor</li>
+                </ul>
+            </div>
+
+            <!-- Ziua 13-18: Tokyo -->
+            <div id="tab-tyo" class="timeline-item cursor-pointer p-4 rounded-r-lg" onclick="focusMap('tyo', this, 'active-emerald')">
+                <div class="flex items-center text-xs font-semibold text-emerald-600 mb-1 tracking-wider uppercase">
+                    <i class="fa-solid fa-train mr-2"></i> Bază 4 (5 Nopți)
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">13 - 18 Mai: Tokyo</h3>
+                <p class="text-sm text-slate-600 mt-1 mb-2">
+                    <span class="font-medium text-emerald-700">HIJ 🚄 TYO</span> (~4h Shinkansen).
+                </p>
+                <ul class="text-xs text-slate-500 list-disc list-inside space-y-1">
+                    <li>Shimokitazawa (vibe hipster)</li>
+                    <li>Yanaka Ginza (vechiul Tokyo)</li>
+                    <li>Shopping: Ginza & Daikanyama</li>
+                </ul>
+            </div>
+
+            <!-- Ziua 18-19: Retur -->
+            <div id="tab-retur" class="timeline-item cursor-pointer p-4 rounded-r-lg" onclick="focusMap('retur', this, 'active')">
+                <div class="flex items-center text-xs font-semibold text-blue-600 mb-2 tracking-wider uppercase">
+                    <i class="fa-solid fa-plane-arrival mr-2"></i> Retur (Qatar Airways)
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">18 - 19 Mai: TYO ✈️ OTP</h3>
+                
+                <!-- Detalii zbor retur -->
+                <div class="mt-3 pl-3 border-l-2 border-slate-200 space-y-3">
+                    <div>
+                        <p class="text-xs font-bold text-slate-700">✈️ NRT - DOH</p>
+                        <p class="text-xs text-slate-500">18 Mai • 15:25 - 20:20 <span class="text-blue-500 font-medium ml-1">(Durată: 11h 55m)</span></p>
+                    </div>
+                    <div class="bg-slate-100 p-2 rounded text-xs text-slate-600">
+                        <i class="fa-solid fa-bed text-amber-600 mr-1"></i> <strong>Escală DOH:</strong> 14h 25m (Cazare recomandată)
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-slate-700">✈️ DOH - OTP</p>
+                        <p class="text-xs text-slate-500">19 Mai • 10:45 - 15:35 <span class="text-blue-500 font-medium ml-1">(Durată: 4h 50m)</span></p>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Coordonate orase principale
+        const cities = {
+            otp: [44.5711, 26.0850],
+            doh: [25.2609, 51.5670],
+            hkg: [22.3080, 113.9185],
+            fuk: [33.5859, 130.4507],
+            hij: [34.3853, 132.4553],
+            tyo: [35.7720, 140.3929]
+        };
+
+        // Baza de date cu POI (Puncte de Interes) care se afiseaza la click
+        const poiData = {
+            hkg: [
+                { name: "Victoria Peak", coords: [22.2759, 114.1455], icon: "fa-mountain-sun", color: "text-red-500 border-red-500", desc: "Vedere panoramică uimitoare asupra orașului", imageName: "vedere panoramică Victoria Peak din Hong Kong" },
+                { name: "Big Buddha", coords: [22.2540, 113.9050], icon: "fa-vihara", color: "text-red-500 border-red-500", desc: "Statuie gigantică de bronz în munți", imageName: "statuia Big Buddha din Lantau" },
+                { name: "Temple Street", coords: [22.3089, 114.1698], icon: "fa-store", color: "text-red-500 border-red-500", desc: "Piață de noapte vibrantă și street food", imageName: "Piața de noapte Temple Street colorată" },
+                { name: "Shenzhen (China)", coords: [22.5431, 114.0579], icon: "fa-microchip", color: "text-purple-500 border-purple-500", desc: "Day Trip: Shopping și tehnologie (15min tren)", imageName: "orizontul modern al orașului Shenzhen" },
+                { name: "Avenue of Stars", coords: [22.2929, 114.1749], icon: "fa-star", color: "text-red-500 border-red-500", desc: "Promenadă cu vedere spre skyline-ul din HK", imageName: "Promenada Avenue of Stars noaptea" },
+                { name: "Lan Kwai Fong", coords: [22.2813, 114.1554], icon: "fa-martini-glass", color: "text-red-500 border-red-500", desc: "Centrul vieții de noapte și restaurante", imageName: "stradă aglomerată Lan Kwai Fong" }
+            ],
+            fuk: [
+                { name: "Nakasu Yatai", coords: [33.5923, 130.4045], icon: "fa-bowl-food", color: "text-rose-500 border-rose-500", desc: "Mâncare stradală tradițională pe malul râului", imageName: "tarabe cu mâncare Yatai luminate noaptea" },
+                { name: "Ohori Park", coords: [33.5860, 130.3765], icon: "fa-tree", color: "text-rose-500 border-rose-500", desc: "Parc superb cu un lac central mare", imageName: "lac liniștit în Parcul Ohori" },
+                { name: "Kumamoto Castle", coords: [32.8062, 130.7058], icon: "fa-chess-rook", color: "text-slate-600 border-slate-500", desc: "Day Trip Shinkansen: Castel samurai restaurat", imageName: "Castelul Kumamoto impunător" },
+                { name: "Canal City Hakata", coords: [33.5898, 130.4107], icon: "fa-bag-shopping", color: "text-rose-500 border-rose-500", desc: "Complex comercial masiv cu canal de apă", imageName: "complexul comercial Canal City Hakata" },
+                { name: "Dazaifu Tenmangu", coords: [33.5215, 130.5248], icon: "fa-torii-gate", color: "text-rose-500 border-rose-500", desc: "Day Trip: Altar shintoist istoric", imageName: "templul Dazaifu Tenmangu cu flori de prun" }
+            ],
+            hij: [
+                { name: "Peace Memorial", coords: [34.3927, 132.4525], icon: "fa-dove", color: "text-emerald-500 border-emerald-500", desc: "Domul bombei atomice și parcul păcii", imageName: "Domul Bombei Atomice din Hiroshima" },
+                { name: "Miyajima (Torii)", coords: [34.2796, 132.3197], icon: "fa-torii-gate", color: "text-orange-500 border-orange-500", desc: "Insulă sacră cu poartă plutitoare", imageName: "poarta Torii plutitoare roșie din Miyajima" },
+                { name: "Onomichi", coords: [34.4065, 133.1979], icon: "fa-cat", color: "text-teal-600 border-teal-600", desc: "Day Trip: Orașul colinelor, templelor și pisicilor", imageName: "vederea panoramică din Onomichi" },
+                { name: "Hiroshima Castle", coords: [34.4029, 132.4593], icon: "fa-chess-rook", color: "text-emerald-500 border-emerald-500", desc: "Castelul crapului reconstruit", imageName: "Castelul Hiroshima înconjurat de copaci" },
+                { name: "Shukkeien Garden", coords: [34.4005, 132.4667], icon: "fa-leaf", color: "text-emerald-500 border-emerald-500", desc: "Grădină japoneză tradițională miniaturală", imageName: "Grădina tradițională Shukkeien" }
+            ],
+            tyo: [
+                { name: "Shimokitazawa", coords: [35.6616, 139.6665], icon: "fa-record-vinyl", color: "text-emerald-500 border-emerald-500", desc: "Cartier boem, vintage și hipster", imageName: "stradă vintage aglomerată în Shimokitazawa" },
+                { name: "Yanaka Ginza", coords: [35.7275, 139.7656], icon: "fa-shop", color: "text-emerald-500 border-emerald-500", desc: "Atmosfera vechiului Tokyo (Shitamachi)", imageName: "stradă tradițională Yanaka Ginza" },
+                { name: "Shibuya", coords: [35.6580, 139.7016], icon: "fa-street-view", color: "text-emerald-500 border-emerald-500", desc: "Cea mai aglomerată intersecție din lume", imageName: "celebra intersecție pietonală Shibuya" },
+                { name: "Senso-ji (Asakusa)", coords: [35.7148, 139.7967], icon: "fa-vihara", color: "text-emerald-500 border-emerald-500", desc: "Cel mai vechi și faimos templu din Tokyo", imageName: "Templul Senso-ji iluminat seara" },
+                { name: "Akihabara", coords: [35.6983, 139.7731], icon: "fa-gamepad", color: "text-emerald-500 border-emerald-500", desc: "Cartierul electronicelor și culturii anime", imageName: "lumini de neon vibrante în Akihabara" },
+                { name: "Shinjuku Gyoen", coords: [35.6852, 139.7100], icon: "fa-tree", color: "text-emerald-500 border-emerald-500", desc: "Oază de liniște și grădini imense în centru", imageName: "Grădina Națională Shinjuku Gyoen senină" }
+            ]
+        };
+
+        // Initializare Harta
+        const map = L.map('map', { zoomControl: false }).setView([30.0, 90.0], 3);
+        L.control.zoom({ position: 'topleft' }).addTo(map);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OSM &copy; CARTO', subdomains: 'abcd', maxZoom: 20
+        }).addTo(map);
+
+        // Layer separat pentru POI-uri dinamice
+        const poiLayerGroup = L.layerGroup().addTo(map);
+
+        // Helper pentru iconite
+        const createCustomIcon = (iconClass, colorClass, isPoi = false) => {
+            const extraClass = isPoi ? 'poi-marker' : '';
+            return L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="bg-white rounded-full shadow-md p-2 border-2 ${colorClass} flex items-center justify-center ${extraClass}" style="width: 30px; height: 30px; margin-left:-15px; margin-top:-15px;">
+                           <i class="fa-solid ${iconClass} text-xs"></i>
+                       </div>`,
+                iconSize: [30, 30], iconAnchor: [15, 15]
+            });
+        };
+
+        // Helper pentru generare popup cu imagine
+        const createPopupHtml = (title, desc, imageName) => {
+            return `
+                <div class="w-48 pb-1">
+                    <div class="h-24 bg-slate-200 rounded-t flex items-center justify-center overflow-hidden mb-2 relative border-b border-slate-300">
+                        <span class="text-[10px] text-slate-500 text-center px-4 italic"></span>
+                    </div>
+                    <div class="px-3 pb-2">
+                        <b class="text-sm text-slate-800 leading-tight block">${title}</b>
+                        <p class="text-xs text-slate-600 mt-1 leading-snug">${desc}</p>
+                    </div>
+                </div>
+            `;
+        };
+
+        // Markere statice (Orasele principale)
+        const mainMarkers = {
+            otp: L.marker(cities.otp, {icon: createCustomIcon('fa-house', 'border-slate-800 text-slate-800')}).bindPopup(createPopupHtml('București (OTP)', 'Plecare spre Asia', 'aeroportul Otopeni din București')).addTo(map),
+            doh: L.marker(cities.doh, {icon: createCustomIcon('fa-mug-hot', 'border-blue-600 text-blue-600')}).bindPopup(createPopupHtml('Doha (DOH)', 'Escală Qatar Airways', 'aeroportul modern din Doha')).addTo(map),
+            hkg: L.marker(cities.hkg, {icon: createCustomIcon('fa-building', 'border-red-500 text-red-500')}).bindPopup(createPopupHtml('Hong Kong', 'Bază 1 (5 Nopți)', 'orizontul aglomerat din Hong Kong')).addTo(map),
+            fuk: L.marker(cities.fuk, {icon: createCustomIcon('fa-bowl-food', 'border-rose-500 text-rose-500')}).bindPopup(createPopupHtml('Fukuoka', 'Bază 2 (3 Nopți)', 'centrul orașului Fukuoka')).addTo(map),
+            hij: L.marker(cities.hij, {icon: createCustomIcon('fa-train', 'border-emerald-500 text-emerald-600')}).bindPopup(createPopupHtml('Hiroshima', 'Bază 3 (3 Nopți)', 'orașul modern Hiroshima')).addTo(map),
+            tyo: L.marker(cities.tyo, {icon: createCustomIcon('fa-city', 'border-emerald-500 text-emerald-600')}).bindPopup(createPopupHtml('Tokyo', 'Bază 4 (5 Nopți)', 'metropola Tokyo iluminată')).addTo(map)
+        };
+
+        // Adaugam evenimente de click pe markerele de pe harta pentru a sincroniza cu meniul
+        mainMarkers.otp.on('click', () => focusMap('otp', document.getElementById('tab-otp'), 'active'));
+        mainMarkers.doh.on('click', () => focusMap('retur', document.getElementById('tab-retur'), 'active'));
+        mainMarkers.hkg.on('click', () => focusMap('hkg', document.getElementById('tab-hkg'), 'active-red'));
+        mainMarkers.fuk.on('click', () => focusMap('fuk', document.getElementById('tab-fuk'), 'active-rose'));
+        mainMarkers.hij.on('click', () => focusMap('hij', document.getElementById('tab-hij'), 'active-emerald'));
+        mainMarkers.tyo.on('click', () => focusMap('tyo', document.getElementById('tab-tyo'), 'active-emerald'));
+
+        // Funcție helper pentru trasarea liniilor cu etichetă de durată
+        const drawRouteWithLabel = (startCoords, endCoords, style, duration) => {
+            const route = L.polyline([startCoords, endCoords], style).addTo(map);
+            if(duration) {
+                // bindTooltip cu parametrul permanent: true centreaza perfect pe linia traseului
+                route.bindTooltip(duration, {
+                    permanent: true,
+                    direction: 'center',
+                    className: 'route-tooltip'
+                });
+            }
+        };
+
+        // Desenam liniile zborurilor principale
+        const flightStyle = { color: '#3b82f6', weight: 2, dashArray: '5, 8', opacity: 0.8 };
+        drawRouteWithLabel(cities.otp, cities.doh, flightStyle, '✈️ 4h 30m');
+        drawRouteWithLabel(cities.doh, cities.hkg, flightStyle, '✈️ 8h 25m');
+        drawRouteWithLabel(cities.hkg, cities.fuk, flightStyle, '✈️ 3h 15m');
+        drawRouteWithLabel(cities.tyo, cities.doh, flightStyle, '✈️ 11h 55m');
+        
+        // Desenam liniile de tren (Shinkansen)
+        const trainStyle = { color: '#10b981', weight: 3, opacity: 0.9 };
+        drawRouteWithLabel(cities.fuk, cities.hij, trainStyle, '🚄 1h');
+        drawRouteWithLabel(cities.hij, cities.tyo, trainStyle, '🚄 4h');
+
+        // Rezolvam problema de incarcare initiala a hartii
+        window.addEventListener('load', () => {
+            map.invalidateSize();
+            map.fitBounds([cities.hkg, cities.tyo], { padding: [50, 50], animate: true });
+        });
+
+        // Functia principala rulata la click pe elementele din meniu sau pe harta
+        window.focusMap = function(action, element, activeClass) {
+            // Resetam clasele active
+            document.querySelectorAll('.timeline-item').forEach(el => {
+                el.classList.remove('active', 'active-red', 'active-rose', 'active-emerald', 'bg-slate-50');
+            });
+            
+            // Setam clasa activa pe elementul selectat si facem scroll catre el
+            if(element) {
+                element.classList.add(activeClass, 'bg-slate-50');
+                element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            poiLayerGroup.clearLayers(); // Stergem POI-urile vechi
+
+            if(action === 'otp') {
+                map.flyTo(cities.doh, 4, {duration: 1.5}); // Zoom out pt zbor
+                setTimeout(() => mainMarkers.doh.openPopup(), 1500);
+            } 
+            else if (action === 'retur') {
+                map.flyTo(cities.doh, 4, {duration: 1.5});
+            }
+            else if (action === 'fuk_flight') {
+                map.flyToBounds([cities.hkg, cities.fuk], {padding: [50,50], duration: 1.5});
+            }
+            else if (poiData[action]) {
+                // Generam POI-uri dinamice pt orasul selectat
+                let bounds = L.latLngBounds([cities[action]]); // Includem orasul principal in vizualizare
+                
+                poiData[action].forEach((poi, index) => {
+                    bounds.extend(poi.coords);
+                    
+                    // Adaugam un mic delay la aparitie pentru efect vizual
+                    setTimeout(() => {
+                        let popupHtml = createPopupHtml(poi.name, poi.desc, poi.imageName);
+                        
+                        L.marker(poi.coords, {icon: createCustomIcon(poi.icon, poi.color, true)})
+                         .bindPopup(popupHtml)
+                         .addTo(poiLayerGroup);
+                         
+                        // Desenam o linie punctata din orasul principal catre POI daca e day trip
+                        if(poi.desc && poi.desc.includes('Trip')) {
+                            L.polyline([cities[action], poi.coords], {color: '#94a3b8', weight: 2, dashArray: '3, 6'}).addTo(poiLayerGroup);
+                        }
+                    }, index * 150);
+                });
+
+                // Zoom pe zona de POI-uri
+                map.flyToBounds(bounds, { padding: [60, 60], duration: 1.5, maxZoom: 12 });
+                setTimeout(() => mainMarkers[action].openPopup(), 1500);
+            }
+        };
+    </script>
+</body>
+</html>
